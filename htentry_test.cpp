@@ -109,5 +109,8 @@ int main(){
 
     cout << "Pass rehash target.\n";
 
+    cout << one->get_hash_value() << endl;
+    cout << two->get_hash_value() << endl;
+
     return 0;
 }   

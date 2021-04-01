@@ -12,6 +12,6 @@ SET(CMAKE_C_FLAGS ${CMAKE_CXX_FLAGS} -fno-strict-aliasing -O2 -Wall -Wextra -pip
 aux_source_directory(src HOTRING)
 
 add_executable(running_ht
-    htentry_test.cpp
+    hotshop_movement_test.cpp
     ${HOTRING}
 )

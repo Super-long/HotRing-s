@@ -5,21 +5,37 @@ namespace HotRingInstance{
 
 using std::string;
 
+class htEntry;
+
 class hrHead{
- 
+    public:
+        explicit hrHead(htEntry* ptr = nullptr) : head(ptr) {}
+
+        htEntry *get_head() const &;
+        void set_head(htEntry *n);
+
+        bool get_active() const &;
+        void set_active();
+        void reset_active();
+
+        int get_counter() const;    // total counter，代表了整个冲突环的访问次数
+        void inc_counter();
+        void reset_counter();
+    private:    
+        static constexpr size_t inc_base = 281474976710656;     // counter 递增的单位 2^48
+        htEntry* head;
 };
 
 class htEntry{
     public:
         // TODO 这里其实给个默认参数挺没必要的，因为0也是有效值，可能会出现问题，但是暂时先不改
-        htEntry(const string& k, const string& v, htEntry* n = nullptr, size_t t = 0) : key(k), val(v), next(n), tag(t), hash_value(hash_fn(k)){}
+        // 不设置tag的原因是tag不仅与hash_value有关，还与哈希表掩码有关，仅htEntry无法得到
+        htEntry(const string& k, const string& v, htEntry* n = nullptr, size_t t = 0) : key(k), val(v), next(n), tag(t){}
 
-        size_t get_hash_value() const &;
-
-        string get_key() const &;
+        const string& get_key() const &;
         void set_key(const string &s);
 
-        string get_val() const &; 
+        const string& get_val() const &; 
         void set_val(const string &s);
 
         htEntry *get_next() const &;
@@ -42,19 +58,12 @@ class htEntry{
 
         bool operator<(htEntry* other);
     private:
-        inline static std::hash<std::string> hash_fn = std::hash<std::string>();  // 后期可替换哈希函数
         string key;                 // 键；虽然比较使用tag，但是tag相同就需要key了
         string val;                 // 值
         size_t tag;                 // 使用tag环中进行比较
-        const size_t hash_value;
-        static constexpr size_t address_mask = 281474976710655; // 2^48 - 1
         static constexpr size_t inc_base = 281474976710656;     // counter 递增的单位 2^48
         htEntry* next;              // rehash,occupied,counter分布在指针的前16比特
 };
-
-
-
-
 
 }
 

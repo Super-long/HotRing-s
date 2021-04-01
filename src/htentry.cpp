@@ -1,18 +1,69 @@
 #include "htentry.hpp"
 
 namespace HotRingInstance{
-        size_t htEntry::get_hash_value() const &{
-            return hash_value;
+
+        htEntry* hrHead::get_head() const &{
+            return head;
+        }
+        void hrHead::set_head(htEntry *ptr){
+            head = ptr;
         }
 
-        string htEntry::get_key() const &{
+        bool hrHead::get_active() const &{
+            size_t ptr = reinterpret_cast<size_t>(head);
+            return ptr & (1l << 63l);
+        }
+
+        void hrHead::set_active(){
+            size_t ptr = reinterpret_cast<size_t>(head);
+            ptr |= (1l << 63l); // 某一位置为1
+            head = reinterpret_cast<htEntry*>(ptr);
+        }
+        void hrHead::reset_active(){
+            size_t ptr = reinterpret_cast<size_t>(head);
+            ptr &= ~(1l << 63l);// 某一位置为0
+            head = reinterpret_cast<htEntry*>(ptr);
+        }
+
+        int hrHead::get_counter() const{
+            size_t ptr = reinterpret_cast<size_t>(head);
+            ptr &= ~(1l << 63l);
+            return ptr>>48;
+        }
+
+        void hrHead::inc_counter(){
+            size_t ptr = reinterpret_cast<size_t>(head);
+            bool active = ptr & (1l << 63l);
+            ptr += inc_base;
+            // 先置空，不然下面的位运算在进位时会出现问题
+            ptr &= ~(1l << 63l);
+
+            if(active){
+                ptr |= (1l << 63l);
+            }
+
+            head = reinterpret_cast<htEntry*>(ptr);
+        }
+
+        void hrHead::reset_counter(){
+            size_t ptr = reinterpret_cast<size_t>(head);
+            bool active = ptr & (1l << 63l);        
+            ptr <<= 16;
+            ptr >>= 16;
+            if(active){
+                ptr |= (1l << 63l);
+            }
+            head = reinterpret_cast<htEntry*>(ptr);
+        }
+
+        const string& htEntry::get_key() const &{
             return key;
         }
         void htEntry::set_key(const string &s){
             key = s;
         }
 
-        string htEntry::get_val() const &{
+        const string& htEntry::get_val() const &{
             return val;
         } 
         void htEntry::set_val(const string &s){
@@ -98,7 +149,8 @@ namespace HotRingInstance{
             size_t ptr = reinterpret_cast<size_t>(next);
             bool occupied = ptr & (1l << 62l);
             bool rehash = ptr & (1l << 63l);
-            // 这两部是清空counter位            ptr <<= 16;
+            // 这两部是清空counter位            
+            ptr <<= 16;
             ptr >>= 16;
             if(occupied){
                 ptr |= (1l << 62l);
