@@ -2,7 +2,7 @@
 
 namespace HotRingInstance{
 
-        htEntry* hrHead::get_head() const &{
+        htEntry* hrHead::get_head() const {
             size_t ptr = reinterpret_cast<size_t>(head);
             ptr <<= 16;
             ptr >>= 16;

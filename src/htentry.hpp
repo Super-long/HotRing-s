@@ -11,7 +11,7 @@ class hrHead{
     public:
         explicit hrHead(htEntry* ptr = nullptr) : head(ptr) {}
 
-        htEntry *get_head() const &;
+        htEntry* get_head() const;
         void set_head(htEntry *n);
 
         bool get_active() const &;

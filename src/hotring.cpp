@@ -4,6 +4,8 @@
 #include <iostream>
 #include "hotring.hpp"
 
+#include <unistd.h>
+
 namespace HotRingInstance{
     HotRing::HotRing(size_t sz):table(0), findcnt(0), minFindcnt(LONG_MAX), maxFindcnt(0) {
         size_t htsz = 1;
@@ -21,7 +23,7 @@ namespace HotRingInstance{
         htEntry *newItem = new htEntry(key, val, nullptr, tag >> __builtin_popcountl(hash_mask));
         htEntry *pre = nullptr;
         htEntry *nxt = nullptr;
-        //std::cout << key << " " << index << " " << tag << std::endl;
+
         if(table[index].get_head() == nullptr){
             table[index].set_head(newItem);
             newItem->set_next(newItem);
@@ -52,11 +54,62 @@ namespace HotRingInstance{
     }
 
     bool HotRing::remove(const string &key){
+        htEntry *res = search(key);
+        unsigned int hashValue = hash_fn(key);
+        unsigned int index = hashValue & hash_mask;
+        // 环中没有要删除的数据，当然包括环为空的情况
+        if (res == nullptr) return false;
 
+/*      // 这段代码错哪了？
+        htEntry* pre = table[index].get_head();
+        htEntry* curr = pre->get_next();
+        if(pre == curr){ // 冲突环只有一个结点
+            table[index].set_head(nullptr);
+            delete pre;
+            return true;
+        }
+        
+        while (curr->get_val() != res->get_val()) {
+            pre = pre->get_next();
+            curr = curr->get_next();
+            std::cout << curr->get_val() << " " << res->get_val() << std::endl;
+        }
+        std::cout << "find it! " << key << std::endl;
+        pre->set_next(curr->get_next());
+
+        delete curr; */
+
+        htEntry *pre = res;
+        // 密集写时会很慢，所以我们需要在热点转移那里把head指向设置为热点的前一个值，这样删除会很快
+        while (pre->get_next()->get_key() != res->get_key()) {
+            pre = pre->get_next();
+        }
+        pre->set_next(res->get_next());
+
+        if (table[index].get_head() == res){
+            if (pre == res) {   // 只有一项
+                table[index].set_head(nullptr);
+            } else {            // 如果删除的结点是热点，head就指向删除的结点之后
+                table[index].set_head(res->get_next());
+            }
+        }
+
+        delete res; // TODO 后面改为智能指针
+        return true;
     }
 
+    // 在paper3.2.3中提到如果删除的项是头指针指向的热点数据的话，我们需要把新插入的数据项作为热点
+    // TODO papar中的update貌似指的是把结点本身删除，替换为另外一个结点，没搞清楚paper中为什么要那样。
     bool HotRing::update(const string &key, const string &val){
+        htEntry *res = search(key);
+        if (res == nullptr) return false;
 
+        size_t hashValue = hash_fn(key);
+        size_t index = hashValue & hash_mask;
+        res->set_val(val);
+        table[index].set_head(res);
+
+        return true;
     }
 
     htEntry* HotRing::search(const string &key){
@@ -167,6 +220,7 @@ namespace HotRingInstance{
             pre = pre->get_next();
         }
 
+        // TODO 这里可以把head指向热点的前一项，这样的话删除会很快，不然需要绕一圈去找前驱指针
         table[index].set_head(new_head);
     }
 
