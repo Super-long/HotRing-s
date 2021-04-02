@@ -18,6 +18,7 @@ namespace HotRingInstance{
             size_t getfindcnt() const;
             size_t getmaxFindcnt() const;
             size_t getminFindcnt() const;
+            void clear_metadata();
             void hotspot_movement(size_t index);
         private:
             void set_min_max(const size_t onecnt);

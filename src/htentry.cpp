@@ -3,8 +3,13 @@
 namespace HotRingInstance{
 
         htEntry* hrHead::get_head() const &{
-            return head;
+            size_t ptr = reinterpret_cast<size_t>(head);
+            ptr <<= 16;
+            ptr >>= 16;
+            return reinterpret_cast<htEntry*>(ptr);
         }
+
+        // 这里默认使用传入指针的标记位，丢弃掉原指针的标记位
         void hrHead::set_head(htEntry *ptr){
             head = ptr;
         }
@@ -70,8 +75,12 @@ namespace HotRingInstance{
             val = s;
         }
 
+        // 这里返回要注意不能直接返回，我们需要保存指针前16位的标记，并且要清空返回
         htEntry* htEntry::get_next() const &{
-            return next;
+            size_t ptr = reinterpret_cast<size_t>(next);
+            ptr <<= 16;
+            ptr >>= 16;
+            return reinterpret_cast<htEntry*>(ptr);;
         }
 
         void htEntry::set_next(htEntry *n){

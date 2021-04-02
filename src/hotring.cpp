@@ -1,10 +1,11 @@
 #include <string>
 #include <limits.h>
 #include <algorithm>
+#include <iostream>
 #include "hotring.hpp"
 
 namespace HotRingInstance{
-    HotRing::HotRing(size_t sz):table(0), findcnt(0), minFindcnt(0x7fffffff), maxFindcnt(0) {
+    HotRing::HotRing(size_t sz):table(0), findcnt(0), minFindcnt(LONG_MAX), maxFindcnt(0) {
         size_t htsz = 1;
         while (htsz < sz) htsz <<= 1;   // 把容量扩充为参数的整数次幂
         table.resize(htsz);
@@ -16,10 +17,11 @@ namespace HotRingInstance{
         size_t index = hashValue & hash_mask;
         size_t tag = hashValue & (~hash_mask);
 
+        // 这里可以进行优化，每次插入都需要内存分配，slab是个不错的选择
         htEntry *newItem = new htEntry(key, val, nullptr, tag >> __builtin_popcountl(hash_mask));
         htEntry *pre = nullptr;
         htEntry *nxt = nullptr;
-
+        //std::cout << key << " " << index << " " << tag << std::endl;
         if(table[index].get_head() == nullptr){
             table[index].set_head(newItem);
             newItem->set_next(newItem);
@@ -60,7 +62,7 @@ namespace HotRingInstance{
     htEntry* HotRing::search(const string &key){
         size_t hashValue = hash_fn(key);
         size_t index = hashValue & hash_mask;
-        size_t tag = hashValue & (~hash_mask);
+        size_t tag = (hashValue & (~hash_mask)) >> __builtin_popcountl(hash_mask);
 
         htEntry* pre = nullptr;
         htEntry* nxt = nullptr;
@@ -69,6 +71,9 @@ namespace HotRingInstance{
         size_t precnt = findcnt;
         htEntry compareItem(key, "", nullptr, tag);
         bool hotspotAware = false;
+
+        using namespace std;
+        //std::cout << key << " : " << index << std::endl; 
 
         // 在每R个请求完成之后，我们确定是否启动新一轮采样，设置active状态。
         // 如果第R次访问是热访问，则意味着当前热点标识仍然准确，并且无需触发采样
@@ -86,25 +91,27 @@ namespace HotRingInstance{
                 }
             }
         } else {    // 环中有很多元素
+            //cout << "第三个if\n";
             pre = table[index].get_head();
+
             if(table[index].get_active()){ // 3.2.2，active标志存在才进行采样
                 pre->inc_counter(); 
             }
             nxt = table[index].get_head()->get_next();
             while (true) {
                 if(compareItem.get_tag() == pre->get_tag() && key == pre->get_key()){
-                    if(pre != table[index].get_head() && r >= R){   // 第R次访问不是热结点，开启采样;当热点调整的时候重置
+                    res = pre;
+                    if(r >= R && pre != table[index].get_head()){   // 第R次访问不是热结点，开启采样;当热点调整的时候重置
                         if(table[index].get_active()){  // 保证在设置后的第R次进行热点调整
                             hotspot_movement(index);    // 其中清空了每个数据项的统计信息
                             table[index].reset_active();
                             table[index].reset_counter();
-                            r = 0;
                         } else {
                             table[index].set_active();
-                            r = 0;
-                            break;
                         }
+                        r = 0;
                     }
+                    break;
                 }
 
                 if (((*pre) < (&compareItem) && (compareItem) < (nxt)) ||       //ordre_i-1 < order_k < order_i
@@ -118,9 +125,9 @@ namespace HotRingInstance{
                 ++findcnt;
             }
         }
+        ++findcnt;  // 在正常的循环的地方递增，也就是向上数两行的作用;这一行的作用是查找成功和查找失败的那一个加1，放上面就得写好多个加1
 
         set_min_max(findcnt - precnt);
-
         return res;
     }
 
@@ -173,6 +180,12 @@ namespace HotRingInstance{
 
     size_t HotRing::getminFindcnt() const {
         return minFindcnt;
+    }
+
+    void HotRing::clear_metadata(){
+        minFindcnt = LONG_MAX;
+        maxFindcnt = 0;
+        findcnt = 0;
     }
 
     void HotRing::set_min_max(const size_t onecnt){
